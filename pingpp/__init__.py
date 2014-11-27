@@ -6,8 +6,8 @@
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
-from pingpp.charge import Charge
+from pingpp import Charge, Refund
 
-__all__ = ('Charge', 'api_key')
+__all__ = ('Charge', 'Refund', 'api_key')
 
 api_key = None
