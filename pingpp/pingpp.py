@@ -1,5 +1,5 @@
-#!/usr/bin/python
-#-*- coding=utf-8 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 """
 """
@@ -12,21 +12,21 @@ from query import QuerySet
 
 class Charge(object):
 
-	objects = QuerySet()
+    objects = QuerySet()
 
-	def save(self):
-		pass
+    def save(self):
+        pass
 
-	def delete(self):
-		pass
+    def delete(self):
+        pass
 
 
 class Refund(object):
 
-	objects = QuerySet()
+    objects = QuerySet()
 
-	def save(self):
-		pass
+    def save(self):
+        pass
 
-	def delete(self):
-		pass
+    def delete(self):
+        pass
