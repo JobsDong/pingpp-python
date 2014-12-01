@@ -7,11 +7,8 @@
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
 import requests
-from requests.exceptions import ConnectionError, RequestException
 
-from pingpp import api_key, api_url
-from pingpp.exception import PingPPClientException, PingPPServiceException
-
+api_url = "https://api.pingplusplus.com/v1"
 
 class MultipleObjectsReturned(Exception):
     pass
@@ -31,82 +28,87 @@ class NotSupportError(Exception):
 
 class QuerySet(object):
 
-    def __init__(self, model, **kwargs):
+    def __init__(self, model, objs=None):
         self.model = model
-        self._kwargs = kwargs
-        self._query = dict()
-        self._iteration_num = None
-        self._response_class = kwargs.get("response_class", Response)
-        self._set_objects(responses)
+        self._objs = objs
 
     def __len__(self):
-        if self._iteration_num is None:
-            return self.count()
-        return self._iteration_num
+        return len(self._objs)
+
+    def __getitem__(self, index):
+        if index < len(self._objs):
+            return self._objs[index]
+        else:
+            raise KeyError
 
     def create(self, **kwargs):
         obj = self.model(**kwargs)
         obj.save()
         return obj
 
-    def get(self, *args, **kwargs):
-        clone = self.filter(*args, **kwargs)
-        num = len(clone._objects)
+    def get(self, **kwargs):
+        clone = self.filter(**kwargs)
+        num = len(clone._objs)
         if num > 1:
             raise MultipleObjectsReturned()
         elif not num:
             raise ObjectDoesNotExist()
         return clone[0]
 
-    def filter(self, *args, **kwargs):
-        return self._filter(*args, **kwargs)
+    def filter(self, **kwargs):
+        return self._filter(**kwargs)
 
-    def _filter(self, *args, **kwargs):
-        # TODO
-        query = dict(self._query.items() + kwargs.items())
+    def _filter(self, **kwargs):
+        query = dict(kwargs.items())
         clone = self._clone(self._get_responses(**query))
-        clone._query.update({"id_in": clone._get_ids()})
         return clone
 
-    def _clone(self, responses=None, klass=None, **kwargs):
-        responses = responses or self._responses
-        klass = klass or self.__class__
-        clone = klass(model=self.model, responses=responses, query=self._query)
-        clone.__dict__.update(kwargs)
+    def _clone(self, responses=None):
+        objs = [self._wrap_response(response)
+                for response in responses]
+        clone = self.__class__(self.model, objs)
         return clone
 
     def _get_responses(self, **kwargs):
-        return self.model._client.get(**kwargs)
-
-    def _set_objects(self):
-        if self._objects is not None\
-                and isinstance(self._objects, (tuple, list)):
-            for i, obj in enumerate(self._objects):
-                if isinstance(obj, dict) is True:
-                    self._objects[i] = self._wrap_response(obj)
-            return self._objects
+        resp = requests.get("%s/%s" % (api_url, "charges"),
+                            auth=('sk_test_uHmDyTKWffX1enbXDSmLCKe5', ''),
+                            params=kwargs)
+        import json
+        a = json.loads(resp.text)
+        print a
+        if isinstance(a, (tuple, list)):
+            return a
         else:
-            return []
+            return [a]
 
-    def _wrap_response(self, dic):
-        return self._response_class(self.model, dic)
+
+    def _wrap_response(self, response):
+        return self.model(**response)
 
 
 class Model(object):
 
+    objects = None
+    _fields = dict()
+
     def __init__(self, **kwargs):
-        self._fields = dict()
         self._fields.update(kwargs)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, vaZlue):
         self._fields[key] = value
 
     def save(self):
         if hasattr(self, "id"):
             raise NotSupportError()
         else:
-            requests.post(self._fields)
+            import json
+            print self._fields
+            resp = requests.post("%s/%s" % (api_url, "charges"),
+                                 auth=('sk_test_uHmDyTKWffX1enbXDSmLCKe5', ''),
+                                 json=self._fields)
+            resp.encoding = 'utf-8'
+            print resp.json()
+            self._fields.update(resp.json())
             # TODO update model dict
-
 
 Model.objects = QuerySet(Model)
