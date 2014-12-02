@@ -1,1 +1,1 @@
-__author__ = 'wuyadong'
+requests>=2.2.1

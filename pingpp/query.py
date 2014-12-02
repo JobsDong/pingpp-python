@@ -6,24 +6,11 @@
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
-import requests
+import http
+
+from exception import NotSupportError
 
 api_url = "https://api.pingplusplus.com/v1"
-
-class MultipleObjectsReturned(Exception):
-    pass
-
-
-class ObjectDoesNotExist(Exception):
-    pass
-
-
-class FieldTypeError(Exception):
-    pass
-
-
-class NotSupportError(Exception):
-    pass
 
 
 class QuerySet(object):
@@ -39,7 +26,7 @@ class QuerySet(object):
         if index < len(self._objs):
             return self._objs[index]
         else:
-            raise KeyError
+            raise StopIteration
 
     def create(self, **kwargs):
         obj = self.model(**kwargs)
@@ -47,68 +34,70 @@ class QuerySet(object):
         return obj
 
     def get(self, **kwargs):
-        clone = self.filter(**kwargs)
-        num = len(clone._objs)
-        if num > 1:
-            raise MultipleObjectsReturned()
-        elif not num:
-            raise ObjectDoesNotExist()
-        return clone[0]
+        resp = http.get(self.model.get_uri(), kwargs)
+        return self.model(**self.model.wrap_get_resp(resp))
 
     def filter(self, **kwargs):
-        return self._filter(**kwargs)
-
-    def _filter(self, **kwargs):
-        query = dict(kwargs.items())
-        clone = self._clone(self._get_responses(**query))
-        return clone
-
-    def _clone(self, responses=None):
-        objs = [self._wrap_response(response)
-                for response in responses]
+        resps = http.get(self.model.filter_uri(), kwargs)
+        objs = [self.model(**self.model.wrap_create_resp(resp))
+                for resp in self.model.wrap_filter_resps(resps)]
         clone = self.__class__(self.model, objs)
         return clone
-
-    def _get_responses(self, **kwargs):
-        resp = requests.get("%s/%s" % (api_url, "charges"),
-                            auth=('sk_test_uHmDyTKWffX1enbXDSmLCKe5', ''),
-                            params=kwargs)
-        import json
-        a = json.loads(resp.text)
-        print a
-        if isinstance(a, (tuple, list)):
-            return a
-        else:
-            return [a]
-
-
-    def _wrap_response(self, response):
-        return self.model(**response)
 
 
 class Model(object):
 
-    objects = None
-    _fields = dict()
+    def __new__(cls, *args, **kwargs):
+        base = cls.configure_class()
+        if not hasattr(base, 'objects'):
+            base.objects = QuerySet(base)
+
+        instance = super(Model, cls).__new__(base)
+        return instance
 
     def __init__(self, **kwargs):
+        super(Model, self).__init__()
+        self._fields = dict()
         self._fields.update(kwargs)
 
-    def __setattr__(self, key, vaZlue):
-        self._fields[key] = value
+    def __getattr__(self, key):
+        return self._fields[key]
+
+    def __str__(self):
+        return str(self._fields)
 
     def save(self):
         if hasattr(self, "id"):
-            raise NotSupportError()
+            raise NotSupportError("not support update operation")
         else:
-            import json
-            print self._fields
-            resp = requests.post("%s/%s" % (api_url, "charges"),
-                                 auth=('sk_test_uHmDyTKWffX1enbXDSmLCKe5', ''),
-                                 json=self._fields)
-            resp.encoding = 'utf-8'
-            print resp.json()
-            self._fields.update(resp.json())
-            # TODO update model dict
+            resp = http.post(self.create_uri(), self._fields)
+            self._fields.update(self.wrap_create_resp(resp))
 
-Model.objects = QuerySet(Model)
+    # POST
+    @classmethod
+    def create_uri(cls):
+        raise NotImplementedError
+
+    @classmethod
+    def wrap_create_resp(cls, resp_dict):
+        raise NotImplementedError
+
+    @classmethod
+    def get_uri(cls):
+        raise NotImplementedError
+
+    @classmethod
+    def wrap_get_resp(cls, resp_dict):
+        raise NotImplementedError
+
+    @classmethod
+    def filter_uri(cls):
+        raise NotImplementedError
+
+    @classmethod
+    def wrap_filter_resps(cls, resp_dict):
+        raise NotImplementedError
+
+    @classmethod
+    def configure_class(cls):
+        raise NotImplementedError
