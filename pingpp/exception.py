@@ -1,18 +1,44 @@
 #!/usr/bin/python
 # -*- coding=utf-8 -*-
 
+"""ping plus plus exception
+"""
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
 
+class ClientError(Exception):
+    """client exception
+    """
+
+
+class UriError(ClientError):
+    """uri exception
+    """
+
+
+class ConnectError(ClientError):
+    """client exception
+    """
+
+
+class RequestError(ClientError):
+    """request exception
+    """
+
+
 class ObjectDoesNotExist(Exception):
-    pass
+    """object does not exist exception
+    """
 
 
 class NotSupportError(Exception):
-    pass
+    """not suppoert exception
+    """
 
 
-class UriError(Exception):
-    pass
+class ServerError(Exception):
+    """server exception
+    """
+
 

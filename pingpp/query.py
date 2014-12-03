@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
+""" resource queryset
 """
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
@@ -24,7 +24,6 @@ class QuerySet(object):
         return iter(self._objs)
 
     def __getitem__(self, index):
-        obj = self._objs[index]
         return self._objs[index]
 
     def create(self, **kwargs):
@@ -33,11 +32,11 @@ class QuerySet(object):
         return obj
 
     def get(self, **kwargs):
-        resp = http.get(self.model._meta.get_uri, kwargs)
+        resp = http.request("get", self.model._meta.get_uri, params=kwargs)
         return self.model(**self.model._meta.wrap_get_resp(resp))
 
     def filter(self, **kwargs):
-        resp = http.get(self.model._meta.filter_uri, kwargs)
+        resp = http.request("get", self.model._meta.filter_uri, params=kwargs)
         objs = [self.model(**self.model._meta.wrap_get_resp(resp))
                 for resp in self.model._meta.wrap_filter_resp(resp)]
         clone = self.__class__(self.model, objs)
@@ -124,11 +123,12 @@ class Resource(object):
             return self._fields[key]
 
     def __str__(self):
-        return '%s object' % self.__class__.__name__
+        return '<%s object>' % self.__class__.__name__
 
     def save(self):
         if hasattr(self, "id"):
             raise NotSupportError("not support update operation")
         else:
-            resp = http.post(self._meta.create_uri, self._fields)
+            resp = http.request("post", self._meta.create_uri,
+                                data=self._fields)
             self._fields.update(self._meta.wrap_create_resp(resp))
