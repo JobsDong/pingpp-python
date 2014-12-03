@@ -22,13 +22,13 @@ print ch.id, ch
 
 
 ch = pingpp.Charge.objects.get(id='ch_iH0yT4zLeDqT0i5qbPXzDaz1')
-print ch
+print ch.id, ch
 
 
 chs = pingpp.Charge.objects.filter()
-for temp in chs:
-    print temp.id, temp
 print len(chs)
+for ch in chs:
+    print ch.id, ch
 
 # TODO 模拟付款，之后再退款
 #

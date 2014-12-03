@@ -6,18 +6,15 @@
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
-import resources
+__title__ = 'pingpp'
+__version__ = '0.1.0'
+__license__ = 'MIT License: http://www.opensource.org/licenses/mit-license.php'
 
 
-__all__ = ('Charge', 'Refund', 'api_key', 'api_url')
+from resources import Charge, Refund
 
 api_key = None
 
 api_url = "https://api.pingplusplus.com/v1"
 
-# FIXME buggy
-Charge = resources.Charge
-Refund = resources.Refund
-
-Charge()
-Refund()
+__all__ = ('Charge', 'Refund', 'api_key', 'api_url')
