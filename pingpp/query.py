@@ -10,8 +10,6 @@ import http
 
 from exception import NotSupportError
 
-api_url = "https://api.pingplusplus.com/v1"
-
 
 class QuerySet(object):
 
@@ -22,11 +20,12 @@ class QuerySet(object):
     def __len__(self):
         return len(self._objs)
 
+    def __iter__(self):
+        return iter(self._objs)
+
     def __getitem__(self, index):
-        if index < len(self._objs):
-            return self._objs[index]
-        else:
-            raise StopIteration
+        obj = self._objs[index]
+        return self._objs[index]
 
     def create(self, **kwargs):
         obj = self.model(**kwargs)
@@ -34,70 +33,102 @@ class QuerySet(object):
         return obj
 
     def get(self, **kwargs):
-        resp = http.get(self.model.get_uri(), kwargs)
-        return self.model(**self.model.wrap_get_resp(resp))
+        resp = http.get(self.model._meta.get_uri, kwargs)
+        return self.model(**self.model._meta.wrap_get_resp(resp))
 
     def filter(self, **kwargs):
-        resps = http.get(self.model.filter_uri(), kwargs)
-        objs = [self.model(**self.model.wrap_create_resp(resp))
-                for resp in self.model.wrap_filter_resps(resps)]
+        resp = http.get(self.model._meta.filter_uri, kwargs)
+        objs = [self.model(**self.model._meta.wrap_get_resp(resp))
+                for resp in self.model._meta.wrap_filter_resp(resp)]
         clone = self.__class__(self.model, objs)
         return clone
 
 
-class Model(object):
+DEFAULT_WRAPS = dict(
+    wrap_create_resp=lambda r: dict(r),
+    wrap_get_resp=lambda r: dict(r),
+    wrap_filter_resp=lambda r: list(r),
+)
 
-    def __new__(cls, *args, **kwargs):
-        base = cls.configure_class()
-        if not hasattr(base, 'objects'):
-            base.objects = QuerySet(base)
 
-        instance = super(Model, cls).__new__(base)
-        return instance
+class Options(object):
+
+    def __init__(self, meta, model_name):
+        # default attrs
+        attrs = dict(DEFAULT_WRAPS)
+        attrs.update({
+            "create_uri": model_name.lower(),
+            "get_uri": "%s/{id}" % model_name.lower(),
+            "filter_uri": model_name.lower(),
+        })
+
+        # meta attrs
+        if meta:
+            meta_attrs = meta.__dict__.copy()
+            for name in self.__dict__:
+                if name.startswith('_'):
+                    del meta_attrs[name]
+
+        for attr_name in attrs.keys():
+            if attr_name in meta_attrs:
+                setattr(self, attr_name, meta_attrs.pop(attr_name))
+            elif hasattr(meta, attr_name):
+                setattr(self, attr_name, getattr(meta, attr_name))
+            else:
+                setattr(self, attr_name, attrs[attr_name])
+
+
+class ResourceBase(type):
+    """
+    Metaclass for all resources
+    """
+
+    def __new__(mcs, name, bases, attrs):
+        super_new = super(ResourceBase, mcs).__new__
+        parents = [b for b in bases if isinstance(b, ResourceBase)]
+        if not parents:
+            return super_new(mcs, name, bases, attrs)
+
+        # create the class
+        module = attrs.pop('__module__')
+        new_class = super_new(mcs, name, bases, {'__module__': module})
+
+        # meta
+        meta = attrs.pop('Meta', None)
+        if not meta:
+            meta = getattr(new_class, 'Meta', None)
+
+        setattr(new_class, "_meta", Options(meta, name))
+
+        # attr
+        for n, v in attrs.items():
+            setattr(new_class, n, v)
+
+        # queryset
+        setattr(new_class, "objects", QuerySet(new_class))
+
+        return new_class
+
+
+class Resource(object):
+    __metaclass__ = ResourceBase
 
     def __init__(self, **kwargs):
-        super(Model, self).__init__()
-        self._fields = dict()
+        self._fields = {}
         self._fields.update(kwargs)
 
     def __getattr__(self, key):
-        return self._fields[key]
+        if key not in self._fields:
+            raise AttributeError
+        else:
+            return self._fields[key]
 
     def __str__(self):
-        return str(self._fields)
+        return '%s object' % self.__class__.__name__
 
     def save(self):
         if hasattr(self, "id"):
             raise NotSupportError("not support update operation")
         else:
-            resp = http.post(self.create_uri(), self._fields)
-            self._fields.update(self.wrap_create_resp(resp))
-
-    # POST
-    @classmethod
-    def create_uri(cls):
-        raise NotImplementedError
-
-    @classmethod
-    def wrap_create_resp(cls, resp_dict):
-        raise NotImplementedError
-
-    @classmethod
-    def get_uri(cls):
-        raise NotImplementedError
-
-    @classmethod
-    def wrap_get_resp(cls, resp_dict):
-        raise NotImplementedError
-
-    @classmethod
-    def filter_uri(cls):
-        raise NotImplementedError
-
-    @classmethod
-    def wrap_filter_resps(cls, resp_dict):
-        raise NotImplementedError
-
-    @classmethod
-    def configure_class(cls):
-        raise NotImplementedError
+            resp = http.post(self._meta.create_uri, self._fields)
+            self._fields.update(self._meta.wrap_create_resp(resp))

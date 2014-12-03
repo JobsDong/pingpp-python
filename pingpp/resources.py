@@ -7,74 +7,22 @@
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
 
-from query import Model
+from query import Resource
 
 
-class Charge(Model):
-
-    # POST
-    @classmethod
-    def create_uri(cls):
-        return 'charges'
-
-    @classmethod
-    def wrap_create_resp(cls, resp_dict):
-        # TODO relation
-        kwargs = dict(resp_dict.items())
-        return kwargs
-
-    @classmethod
-    def get_uri(cls):
-        return 'charges/{id}'
-
-    @classmethod
-    def wrap_get_resp(cls, resp_dict):
-        return resp_dict
-
-    @classmethod
-    def filter_uri(cls):
-        return 'charges'
-
-    @classmethod
-    def wrap_filter_resps(cls, resp_dict):
-        kwargs = dict(resp_dict.items())
-        return kwargs['data']
-
-    @classmethod
-    def configure_class(cls):
-        return Charge
+class Charge(Resource):
+    class Meta:
+        create_uri = 'charges'
+        get_uri = 'charges/{id}'
+        filter_uri = 'charges'
+        wrap_filter_resp = lambda resp_dict: resp_dict['data']
+        verbose_name = "支付信息"
 
 
-class Refund(Model):
-
-    # POST
-    @classmethod
-    def create_uri(cls):
-        return 'charges/{charge_id}/refunds'
-
-    @classmethod
-    def wrap_create_resp(cls, resp_dict):
-        # TODO relation
-        kwargs = dict(resp_dict.items())
-        return kwargs
-
-    @classmethod
-    def get_uri(cls):
-        return 'charges/{charge_id}/refunds/{refund_id}'
-
-    @classmethod
-    def wrap_get_resp(cls, resp_dict):
-        return resp_dict
-
-    @classmethod
-    def filter_uri(cls):
-        return 'charges/{charge_id}/refunds'
-
-    @classmethod
-    def wrap_filter_resps(cls, resp_dict):
-        kwargs = dict(resp_dict.items())
-        return kwargs['data']
-
-    @classmethod
-    def configure_class(cls):
-        return Refund
+class Refund(Resource):
+    class Meta:
+        create_uri = 'charges/{charge_id}/refunds'
+        get_uri = 'charges/{charge_id}/refunds/{refund_id}'
+        filter_uri = 'charges/{charge_id}/refunds'
+        wrap_filter_resp = lambda resp_dict: resp_dict['data']
+        verbose_name = "退款信息"
