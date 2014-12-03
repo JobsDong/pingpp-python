@@ -12,14 +12,6 @@ Ping++ Python SDK，基于 [Ping++ HTTP REST API 接口](https://pingplusplus.co
 pip install pingpp
 ```
 
-> 运行测试用例
-
-```
-export PINGPP_API_KEY=<api_key>
-export PINGPP_APP_ID=<app_id>
-
-make init test
-```
 
 ## 基本函数接口
 
