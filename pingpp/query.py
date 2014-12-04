@@ -118,7 +118,7 @@ class Resource(object):
 
     def __getattr__(self, key):
         if key not in self._fields:
-            raise AttributeError
+            raise AttributeError("%s not exist" % key)
         else:
             return self._fields[key]
 
@@ -127,7 +127,8 @@ class Resource(object):
 
     def save(self):
         if hasattr(self, "id"):
-            raise NotSupportError("not support update operation")
+            raise NotSupportError("not support %s update operation" %
+                                  self.__class__.__name__)
         else:
             resp = http.request("post", self._meta.create_uri,
                                 data=self._fields)
