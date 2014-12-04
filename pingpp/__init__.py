@@ -1,14 +1,13 @@
 #!/usr/bin/python
 #-*- coding=utf-8 -*-
 
-""" pingplusplus 接口
+""" ping plus plus 接口
 """
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
 __title__ = 'pingpp'
 __version__ = '0.1.0'
-__license__ = 'MIT License: http://www.opensource.org/licenses/mit-license.php'
 
 
 from resources import Charge, Refund

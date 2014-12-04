@@ -6,10 +6,10 @@ Ping++ Python SDK，基于 [Ping++ HTTP REST API 接口](https://pingplusplus.co
 
 ### 安装说明
 
-> 可选依赖 [requests](https://github.com/kennethreitz/requests): HTTP for Humans，推荐！
+> 依赖 [requests](https://github.com/kennethreitz/requests): HTTP for Humans，推荐！
 
 ```
-pip install pingpp
+python setup.py install
 ```
 
 

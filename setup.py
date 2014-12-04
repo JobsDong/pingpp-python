@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-"""
 from __future__ import with_statement
 
 
@@ -26,7 +24,6 @@ setup(
     name='pingpp',
     version=pingpp.__version__,
     description='ping plus plus SDK for Python',
-    license='License :: OSI Approved :: MIT License',
     platforms='Platform Independent',
     author='wuyadong zhangxuanyi',
     author_email='wuyadong311521@gmail.com',
@@ -37,7 +34,6 @@ setup(
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',

@@ -75,7 +75,7 @@ def request(method, uri, params=None, data=None):
         if resp.status_code / 100 == 2:
             return resp.json()
         elif resp.status_code / 100 == 4:
-            raise ClientError(*extract_error_resp(resp))
+            raise RequestError(*extract_error_resp(resp))
         elif resp.status_code / 100 == 5:
             raise ServerError(*extract_error_resp(resp))
         else:
