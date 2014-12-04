@@ -69,7 +69,7 @@ print ch.id, ch
 ### 查询Charge对象列表
 
 ```python
-chs = pingpp.Charge.objects.filter(limit=5)
+chs = pingpp.Charge.objects.all(limit=5)
 print len(chs)
 for ch in chs:
     print ch.id, ch
@@ -114,10 +114,15 @@ print re.id, re
 ### 查询Refund对象列表
 
 ```python
-res = pingpp.Refund.objects.filter(charge_id=ch.id, limit=5)
+res = pingpp.Refund.objects.all(charge_id=ch.id, limit=5)
 print len(res)
 for re in res:
     print re.id, re
 ```
 
 查询成功，返回 Refund列表; 失败则抛出相应异常。
+
+### TODO
+
+TODO Resource的属性类型问题
+TODO Refund和Charge的关系问题

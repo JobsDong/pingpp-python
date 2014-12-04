@@ -25,7 +25,7 @@ ch = pingpp.Charge.objects.get(id='ch_iH0yT4zLeDqT0i5qbPXzDaz1')
 print ch.id, ch
 
 
-chs = pingpp.Charge.objects.filter()
+chs = pingpp.Charge.objects.all()
 print len(chs)
 for ch in chs:
     print ch.id, ch
@@ -43,7 +43,7 @@ re = pingpp.Refund.objects.get(charge_id=ch.id, refund_id=re.id)
 print re
 
 
-res = pingpp.Refund.objects.filter(charge_id=ch.id)
+res = pingpp.Refund.objects.all(charge_id=ch.id)
 print len(res)
 
 for re in res:
