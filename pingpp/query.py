@@ -35,10 +35,10 @@ class QuerySet(object):
         resp = http.request("get", self.model._meta.get_uri, params=kwargs)
         return self.model(**self.model._meta.wrap_get_resp(resp))
 
-    def filter(self, **kwargs):
-        resp = http.request("get", self.model._meta.filter_uri, params=kwargs)
+    def all(self, **kwargs):
+        resp = http.request("get", self.model._meta.all_uri, params=kwargs)
         objs = [self.model(**self.model._meta.wrap_get_resp(resp))
-                for resp in self.model._meta.wrap_filter_resp(resp)]
+                for resp in self.model._meta.wrap_all_resp(resp)]
         clone = self.__class__(self.model, objs)
         return clone
 
@@ -46,7 +46,7 @@ class QuerySet(object):
 DEFAULT_WRAPS = dict(
     wrap_create_resp=lambda r: dict(r),
     wrap_get_resp=lambda r: dict(r),
-    wrap_filter_resp=lambda r: list(r),
+    wrap_all_resp=lambda r: list(r),
 )
 
 
@@ -58,7 +58,7 @@ class Options(object):
         attrs.update({
             "create_uri": model_name.lower(),
             "get_uri": "%s/{id}" % model_name.lower(),
-            "filter_uri": model_name.lower(),
+            "all_uri": model_name.lower(),
         })
 
         # meta attrs
@@ -118,7 +118,7 @@ class Resource(object):
 
     def __getattr__(self, key):
         if key not in self._fields:
-            raise AttributeError
+            raise AttributeError("%s not exist" % key)
         else:
             return self._fields[key]
 
@@ -127,7 +127,8 @@ class Resource(object):
 
     def save(self):
         if hasattr(self, "id"):
-            raise NotSupportError("not support update operation")
+            raise NotSupportError("not support %s update operation" %
+                                  self.__class__.__name__)
         else:
             resp = http.request("post", self._meta.create_uri,
                                 data=self._fields)

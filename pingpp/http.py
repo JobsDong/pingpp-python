@@ -66,18 +66,21 @@ def request(method, uri, params=None, data=None):
                                  headers=headers)
         resp.encoding = 'utf-8'
     except requests.exceptions.ConnectionError as e:
-        raise ConnectError(e)
+        raise ConnectError(str(e))
     except requests.exceptions.RequestException as e:
-        raise RequestError(e)
+        raise RequestError(str(e))
     except Exception as e:
         raise ClientError(e)
     else:
         if resp.status_code / 100 == 2:
             return resp.json()
         elif resp.status_code / 100 == 4:
-            raise ClientError(*extract_error_resp(resp))
+            raise RequestError('request error, type:%s, msg:%s, code:%s,'
+                               ' param:%s' % extract_error_resp(resp))
         elif resp.status_code / 100 == 5:
-            raise ServerError(*extract_error_resp(resp))
+            raise ServerError('server error, type:%s, msg:%s, code:%s,'
+                              ' param:%s' % extract_error_resp(resp))
         else:
-            raise ClientError(*extract_error_resp(resp))
+            raise ClientError('client error, type:%s, msg:%s, code:%s,'
+                              ' param:%s' % extract_error_resp(resp))
 
