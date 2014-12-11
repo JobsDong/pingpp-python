@@ -8,6 +8,7 @@ __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
 
 import pingpp.http
+import pingpp.api_key
 import sys
 
 
@@ -24,10 +25,36 @@ class Query(object):
         base = self.obj_type.get_typeurl()
         url = base + '/' + resource_id
         resp = pingpp.http.request("get", url, params=kwargs)
+        return self.obj_type.construct(resp, pingpp.api_key)
+
+    def all(self, **kwargs):
+        resp = pingpp.http.request("get", self.model._meta.all_uri, params=kwargs)
+        objs = [self.model(**self.model._meta.wrap_get_resp(resp))
+                for resp in self.model._meta.wrap_all_resp(resp)]
+        clone = self.__class__(self.model, objs)
+        return clone
+
+def convert_to_pingpp_object(resp, api_key):
+
+    if isinstance(resp, list):
+        return [convert_to_pingpp_object(i, api_key) for i in resp]
+    elif isinstance(resp, dict) and not isinstance(resp, PingppObject):
+        resp = resp.copy()
+        klass_name = resp.get('object')
+        if klass_name == 'list':
+            return convert_to_pingpp_object(resp['data'], api_key)
+        else:
+            klass = types.get(klass_name, PingppObject)
+            return klass.construct(resp, api_key)
+    else:
         return resp
 
 
 class PingppObject(dict):
+    """ PingppObject
+
+    Extends dict is not a good idea.
+    """
     __slots__ = ('_inMyRepr', '_unsaved_values', '_transient_values',
                  '_previous_metadata', 'api_key')
 
@@ -82,7 +109,7 @@ class PingppObject(dict):
             "You cannot delete attributes on a PingppObject. "
             "To unset a property, set it to None.")
 
-    def _repr(self):
+    def __repr__(self):
         """ Avoid infinite recursion
         """
         if self._inMyRepr:
@@ -129,10 +156,48 @@ class PingppObject(dict):
         for k in self.__dictiter__():
             yield k
 
+    @classmethod
+    def construct(cls, resp, api_key):
+        obj = cls(resp)
+        obj.api_key = api_key
+        return obj
 
-class Charge(PingppObject):
 
+class CreateMixin(object):
+
+    @classmethod
+    def create(cls, api_key=None, **kwargs):
+        if api_key is None:
+            api_key = pingpp.api_key
+        url = cls.class_url()
+        response = pingpp.http.request('post', url, params=kwargs)
+        return convert_to_pingpp_object(response, api_key)
+
+
+class UpdateMixin(object):
+    pass
+
+
+class DeleteMixin(object):
+    def delete(self, **kwargs):
+        self.refresh_from(pingpp.http.request('delete', self.get_url(),
+                          kwargs))
+        return self
+
+
+class RefreshMixin(object):
+    def refresh(self):
+        self.refresh_from(self.request('get', self.get_url()))
+        return self
+
+
+class Charge(UpdateMixin, RefreshMixin, PingppObject):
+
+    __slots__ = ('objects',)
     objects = Query()
+
+    def __init__(self, *args, **kwargs):
+        super(Charge, self).__init__(*args, **kwargs)
 
     @classmethod
     def get_typeurl(cls):
@@ -141,15 +206,28 @@ class Charge(PingppObject):
     def get_url(self):
         return self.get_typeurl() + '/' + self.id
 
+    def get_refunds_url(self):
+        return self.get_url() + '/refunds'
 
-class Refund(PingppObject):
+    def refresh_refunds(self, **kwargs):
+        self.refresh_from(self.request('get', self.get_refunds_url(),
+                          params=kwargs))
+        return self
 
-    def __init__(self, charge):
+
+class Refund(RefreshMixin, PingppObject):
+
+    __slots__ = ('_charge', 'objects')
+    objects = Query()
+
+    def __init__(self, charge, amount, desc):
         self._charge = charge
 
-    def _get_typeurl(self):
-        return self._charge.get_url() + '/refunds'
+    def get_url(self):
+        return self._charge.get_refunds_url() + '/' + self[id]
 
+
+types = {'charge': Charge, 'refund': Refund}
 '''
 class Charge(Resource):
     class Meta:
