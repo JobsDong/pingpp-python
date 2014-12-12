@@ -6,10 +6,12 @@
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
-
-import pingpp.http
-import pingpp.api_key
+import json
 import sys
+
+import pingpp
+import pingpp.http
+import pingpp.util
 
 
 class Query(object):
@@ -21,18 +23,26 @@ class Query(object):
         self.obj_type = type_
         return self
 
-    def retrieve(self, resource_id, **kwargs):
-        base = self.obj_type.get_typeurl()
-        url = base + '/' + resource_id
-        resp = pingpp.http.request("get", url, params=kwargs)
+    def retrieve(self, **kwargs):
+        url, real_kwargs = pingpp.http.escape_uri(self.obj_type._get_uri(),
+                                                  kwargs)
+        resp = pingpp.http.request("get", url, params=real_kwargs)
         return self.obj_type.construct(resp, pingpp.api_key)
 
     def all(self, **kwargs):
-        resp = pingpp.http.request("get", self.model._meta.all_uri, params=kwargs)
-        objs = [self.model(**self.model._meta.wrap_get_resp(resp))
-                for resp in self.model._meta.wrap_all_resp(resp)]
-        clone = self.__class__(self.model, objs)
-        return clone
+        url, real_kwargs = pingpp.http.escape_uri(self.obj_type._all_uri(),
+                                                  kwargs)
+        resp = pingpp.http.request("get", url,
+                                   params=real_kwargs)
+        objs = convert_to_pingpp_object(resp, pingpp.api_key)
+        return objs
+
+    def create(self, **kwargs):
+        url, real_kwargs = pingpp.http.escape_uri(self.obj_type._create_uri(),
+                                                  kwargs)
+        resp = pingpp.http.request("post", url, data=real_kwargs)
+        return self.obj_type.construct(resp, pingpp.api_key)
+
 
 def convert_to_pingpp_object(resp, api_key):
 
@@ -72,7 +82,7 @@ class PingppObject(dict):
 
     def update(self, *args, **kwargs):
         for k, v in dict(*args, **kwargs).iteritems():
-            self[k] = v
+            self[k] = convert_to_pingpp_object(v, self.api_key)
 
     def __setitem__(self, k, v):
         if v == "":
@@ -129,15 +139,20 @@ class PingppObject(dict):
                 buf.append(': ')
                 v = self[k]
                 buf.append(repr(v))
-                buf.append('}')
-
-            if sys.version_info[0] < 3:
-                return ''.join(buf).encode('utf-8')
-            else:
-                return ''.join(buf)
+            buf.append('}')
+            return ''.join(buf)
         finally:
             if isRootObject:
                 self._inMyRepr = False
+
+    def __str__(self):
+        unicode_repr = json.dumps(self, ensure_ascii=False,
+                                  sort_keys=False, indent=2).encode('utf8')
+
+        if sys.version_info[0] < 3:
+            return unicode_repr.encode('utf-8')
+        else:
+            return unicode_repr
 
     def copy(self):
         newtmp = PingppObject(self)
@@ -158,9 +173,24 @@ class PingppObject(dict):
 
     @classmethod
     def construct(cls, resp, api_key):
-        obj = cls(resp)
+        obj = cls()
         obj.api_key = api_key
+        obj._refesh_content(resp)
         return obj
+
+    def _refesh_content(self, resp, partial=False):
+        if partial:
+            self._unsaved_values = (self._unsaved_values - set(resp))
+        else:
+            removed = set(self.keys()) - set(resp)
+            self._transient_values = self._transient_values | removed
+            self._unsaved_values = set()
+            self.clear()
+        self._transient_values = self._transient_values - set(resp)
+        self._previous_metadata = resp.get('metadata')
+        for k, v in dict(resp).iteritems():
+            super(PingppObject, self).__setitem__(
+                k, convert_to_pingpp_object(v, self.api_key))
 
 
 class CreateMixin(object):
@@ -175,19 +205,57 @@ class CreateMixin(object):
 
 
 class UpdateMixin(object):
-    pass
+
+    def save(self):
+        updated_params = self.serialize(self)
+
+        if getattr(self, 'metadata', None):
+            updated_params['metadata'] = self.serialize_metadata()
+        if updated_params:
+            self._refesh_content(
+                pingpp.http.request('post', self.get_url(),
+                                    updated_params))
+        else:
+            pingpp.util.logger.debug("Trying to save already saved object %r",
+                                     self)
+        return self
+
+    def serialize_metadata(self):
+        if 'metadata' in self._unsaved_values:
+            # the metadata object has been reassigned
+            # i.e. as object.metadata = {key: val}
+            metadata_update = self['metadata']
+            previous = self._previous_metadata or {}
+            keys_to_unset = set(previous.keys()) - \
+                set(self['metadata'].keys())
+            for key in keys_to_unset:
+                metadata_update[key] = ""
+
+            return metadata_update
+        else:
+            return self.serialize(self['metadata'])
+
+    def serialize(self, obj):
+        params = {}
+        if obj._unsaved_values:
+            for k in obj._unsaved_values:
+                if k == 'id':
+                    continue
+                v = obj[k]
+                params[k] = v if v is not None else ""
+        return params
 
 
 class DeleteMixin(object):
     def delete(self, **kwargs):
-        self.refresh_from(pingpp.http.request('delete', self.get_url(),
-                          kwargs))
+        self._refesh_content(pingpp.http.request('delete', self.get_url(),
+                             kwargs))
         return self
 
 
 class RefreshMixin(object):
     def refresh(self):
-        self.refresh_from(self.request('get', self.get_url()))
+        self._refesh_content(self.request('get', self.get_url()))
         return self
 
 
@@ -200,48 +268,75 @@ class Charge(UpdateMixin, RefreshMixin, PingppObject):
         super(Charge, self).__init__(*args, **kwargs)
 
     @classmethod
-    def get_typeurl(cls):
+    def get_typeuri(cls):
         return 'charges'
 
+    @classmethod
+    def _get_uri(self):
+        return self.get_typeuri() + '/{charge_id}'
+
+    @classmethod
+    def _create_uri(cls):
+        return cls.get_typeuri()
+
+    @classmethod
+    def _all_uri(cls):
+        return cls.get_typeuri()
+
     def get_url(self):
-        return self.get_typeurl() + '/' + self.id
+        return self.get_typeuri() + '/' + self['id']
 
     def get_refunds_url(self):
-        return self.get_url() + '/refunds'
+        return self.get_url() + '/' + Refund.get_typeuri()
 
     def refresh_refunds(self, **kwargs):
-        self.refresh_from(self.request('get', self.get_refunds_url(),
-                          params=kwargs))
+        self._refesh_content(self.request('get', self.get_refunds_url(),
+                             params=kwargs))
         return self
+
+    def create_refund(self, **kwargs):
+        """ Maybe use Refund.objects.create(charge_id=...) is more intuitive.
+        """
+        url, real_kwargs = pingpp.http.escape_uri(Refund._create_uri(),
+                                                  {'charge_id': self['id']})
+        resp = pingpp.http.request("post", url, params=kwargs)
+        return Refund.construct(resp, pingpp.api_key)
 
 
 class Refund(RefreshMixin, PingppObject):
 
-    __slots__ = ('_charge', 'objects')
+    __slots__ = ('_charge_id', 'objects')
     objects = Query()
 
-    def __init__(self, charge, amount, desc):
-        self._charge = charge
+    def __init__(self, charge_id, *args, **kwargs):
+        self._charge_id = charge_id
+        super(Refund, self).__init__(*args, **kwargs)
+
+    @classmethod
+    def get_typeuri(cls):
+        return 'refunds'
+
+    @classmethod
+    def _get_uri(cls):
+        return Charge.get_typeuri() + '/{charge_id}/' + cls.get_typeuri()\
+            + '/{refund_id}'
+
+    @classmethod
+    def _create_uri(cls):
+        return Charge.get_typeuri() + '/{charge_id}/' + cls.get_typeuri()
+
+    @classmethod
+    def _all_uri(cls):
+        return Charge.get_typeuri() + '/{charge_id}/' + cls.get_typeuri()
 
     def get_url(self):
-        return self._charge.get_refunds_url() + '/' + self[id]
+        return Charge.get_typeuri() + '/' + self._charge_id + '/' + \
+            self.get_typeuri() + '/' + self['id']
 
+    @classmethod
+    def construct(cls, resp, api_key):
+        obj = cls(resp['charge'], **resp)
+        obj.api_key = api_key
+        return obj
 
 types = {'charge': Charge, 'refund': Refund}
-'''
-class Charge(Resource):
-    class Meta:
-        create_uri = 'charges'
-        get_uri = 'charges/{id}'
-        all_uri = 'charges'
-        wrap_all_resp = lambda resp_dict: resp_dict['data']
-        verbose_name = "支付信息"
-
-class Refund(Resource):
-    class Meta:
-        create_uri = 'charges/{charge_id}/refunds'
-        get_uri = 'charges/{charge_id}/refunds/{refund_id}'
-        all_uri = 'charges/{charge_id}/refunds'
-        wrap_all_resp = lambda resp_dict: resp_dict['data']
-        verbose_name = "退款信息"
-'''

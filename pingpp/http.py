@@ -26,7 +26,7 @@ def escape_uri(uri, kwargs):
         if key in params:
             params.pop(key)
         else:
-            raise UriError("%s lack in uri" % key)
+            raise UriError("%s lack in kwargs" % key)
     return uri.format(**kwargs), params
 
 
@@ -83,4 +83,3 @@ def request(method, uri, params=None, data=None):
         else:
             raise ClientError('client error, type:%s, msg:%s, code:%s,'
                               ' param:%s' % extract_error_resp(resp))
-
