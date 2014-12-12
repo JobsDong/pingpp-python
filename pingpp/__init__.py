@@ -7,7 +7,7 @@
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
 __title__ = 'pingpp'
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 
 from pingpp.resources import Charge, Refund
