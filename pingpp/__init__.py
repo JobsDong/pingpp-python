@@ -10,7 +10,7 @@ __title__ = 'pingpp'
 __version__ = '0.1.0'
 
 
-from resources import Charge, Refund
+from pingpp.resources import Charge, Refund
 
 api_key = None
 

@@ -6,9 +6,9 @@
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
-import http
+import pingpp.http as http
 
-from exception import NotSupportError
+from pingpp.exception import NotSupportError
 
 
 class QuerySet(object):
