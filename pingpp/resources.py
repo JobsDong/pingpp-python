@@ -6,8 +6,7 @@
 
 __author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
 
-
-from query import Resource
+from pingpp.query import Resource
 
 
 class Charge(Resource):
