@@ -4,7 +4,7 @@
 """
 """
 
-__author__ = ['"wuyadong" <wuyadong311521@gmail.com>']
+__author__ = ['"wuyadong" <wuyadong311521@gmail.com>', 'iceout']
 
 import json
 import sys
